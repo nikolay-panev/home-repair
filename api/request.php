@@ -25,21 +25,22 @@ if($data['api']) {
 		require_once(__DIR__ . "/classes/FoxyAI.php");
 		
 		$api = new FoxyAI($db, 'Sandbox');
-		if(count($data['images']) > 0) {
+		if(is_array($data['images']) && count($data['images']) > 0) {
 			$group_name = $data['customer'] . "-" . date("YmdHis");
 			$response = $api->createImageGroup($group_name, $data['formatted_address']);
-			$group_id = $response['id'];
+			$group_id = $response['_id'];
 			
 			if($group_id) {
 				$images = [];
 				foreach($data['images'] as $image) {
-					$response = $api->create360Image($image, $group_id);
+					$response = $api->createImage($image, $group_id);
 					$images[] = $response['url'];
 				}
 				
-				$report = $api->create360Report($group_id, $data['formatted_address']);
+				$report = $api->propertyReport($group_id, $data['street'], $data['city'], $data['state'], $data['zip']);
 				
-				if($report['id']) {
+				if(is_array($report['areas']) && count($report['areas']) > 0) {
+				/*
 					$stmt = $db->prepare('INSERT INTO `reports` (`uuid`, `category`, `address`, `email`, `images`, `customer`, `status`) VALUES (:uuid, :category, :address, :email, :images, :customer, :status)');
 					$stmt->bindValue(':uuid', $report['id']);
 					$stmt->bindValue(':category', $data['category']);
@@ -68,17 +69,17 @@ if($data['api']) {
 					$stmt->bindValue(':report_json', json_encode($info));
 					$stmt->bindValue(':id', $report_id);
 					$stmt->execute();
-					
-					$renovation = [];
-					foreach($info['renovation']['areas'] as $area) {
+				*/	
+					$estimate = [];
+					foreach($report['areas'] as $area) {
 						foreach($area['remodelProjects'] as $project) {
 							foreach($project['repairItems'] as $item) {
-								$renovation[] = ['area' => $area['label'], 'name' => $project['name'], 'description' => $item['description'], 'quantity' => $item['quantity'], 'ppu' => $item['ppu'], 'total_cost' => $item['totalCost'], 'diy_cost' => $item['diyAmount']];
+								$estimate[] = ['area' => $area['label'], 'name' => $project['name'], 'description' => $item['description'], 'quantity' => $item['quantity'], 'ppu' => $item['ppu'], 'total_cost' => $item['totalCost']];
 							}
 						}
 					}
 					
-					die(json_encode($renovation));
+					die(json_encode(['estimate' => $estimate, 'images' => $images]));
 				}
 			}
 		}
@@ -88,8 +89,8 @@ if($data['api']) {
 		require_once(__DIR__ . "/classes/Thumbtack.php");
 		
 		$api = new Thumbtack($db, 'Sandbox');
-		$response = json_decode($api->getPros($data['zip'], $data['category']), true);
-		$pros = $response['response']['results'];
+		$response = $api->getPros($data['zip'], $data['category']);
+		$pros = $response['results'];
 		
 		if($data['min_rating'] > 0 && is_countable($pros) && count($pros) > 0) {
 			$pros = array_filter($pros, function($item) { return $item['rating'] > $data['min_rating']; });

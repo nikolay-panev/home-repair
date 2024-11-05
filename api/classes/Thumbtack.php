@@ -32,15 +32,7 @@ class Thumbtack {
 		
 		$response = $this->sendRequest($url, $headers);
 		
-		$categories = [];
-		/*
-		if(count($response['results']) > 0) {
-			foreach($response['results'] as $result) {
-				$categories[] = ['id' => $result['categoryPK'], 'title' => $result['categoryDisplayName']];
-			}
-		}
-		*/
-		return json_encode(['status' => 'success', 'categories' => $categories, 'response' => $response]);
+		return $response;
 	}
 	public function getPros($zip, $category) {
 		$url = $this->apiEndpoint[$this->mode] . 'pros?zip_code=' . $zip . '&category=' . $category . '&utm_medium=partnership&utm_source=cma-consortia';
@@ -49,7 +41,7 @@ class Thumbtack {
 		
 		$response = $this->sendRequest($url, $headers);
 		
-		return json_encode(['status' => 'success', 'response' => $response]);
+		return $response;
 	}
 	private function sendRequest($endpoint, $headers = []) {		
 		$ch = curl_init($endpoint);
@@ -68,7 +60,6 @@ class Thumbtack {
 		
 		return $response;
 	}
-	
 	private function saveLogs($request, $response) {
 		if(!$this->logPath) return;
 		

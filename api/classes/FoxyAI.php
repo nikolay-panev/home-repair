@@ -2,10 +2,9 @@
 class FoxyAI {
 	private $db = null;
 	private $mode = null;
-	private $apiUsername = null;
-	private $apiPassword = null;
+	private $apiKey = null;
+	private $apiEndpoint = ['Sandbox' => 'https://api.foxyai.com', 'Production' => 'https://api.foxyai.com'];
 	private $logPath = null;
-	private $apiEndpoint = ['Sandbox' => 'https://api.foxyai.com/', 'Production' => 'https://api.foxyai.com/'];
 	private $clientId = null;
 	
 	public function __construct($db, $mode="Sandbox", $clientId=null) {
@@ -20,13 +19,12 @@ class FoxyAI {
 		$settings = $stmt->fetch(PDO::FETCH_ASSOC);
 		
 		$this->logPath = $settings['log_path'];
-		$this->username = $settings['api_username'];
-		$this->password = $settings['api_password'];
+		$this->apiKey = $settings['api_key'];
 	}
 	/* Create logical grouping of images and keep track of metrics across multiple images */
 	public function createImageGroup($name, $address = null, $meta = []) {
 		$url = $this->apiEndpoint[$this->mode] . '/image-group';
-		$headers = ['Content-Type: application/json', 'Authorization: Basic '. base64_encode($this->username.":".$this->password)];
+		$headers = ['Authorization: Bearer '. $this->apiKey, 'Content-Type: application/json'];
 		$request = [
 			'name' => $name,
 			'address' => $address,
@@ -36,10 +34,19 @@ class FoxyAI {
 		
 		return $response;
 	}
+	/* Get an image group info by the id of the group */
+	public function getImageGroup($group_id) {
+		$url = $this->apiEndpoint[$this->mode] . '/image-group/' . $group_id;
+		$headers = ['Authorization: Bearer '. $this->apiKey, 'Content-Type: application/json'];
+		
+		$response = $this->sendGetRequest($url, $headers);
+		
+		return $response;
+	}
 	/* The image analysis allows you to post a image url and receive information about those images. */
 	public function createImage($image_url, $image_group_id) {
 		$url = $this->apiEndpoint[$this->mode] . '/image';
-		$headers = ['Content-Type: application/json', 'Authorization: Basic '. base64_encode($this->username.":".$this->password)];
+		$headers = ['Authorization: Bearer '. $this->apiKey, 'Content-Type: application/json'];
 		$request = [
 			'url' => $image_url,
 			'models' => ["room_classification", "condition_score", "quality_score"],
@@ -49,10 +56,18 @@ class FoxyAI {
 		
 		return $response;
 	}
+	/* Returns a detailed report of all the detections made by the models run against the image */
+	public function getImageResults($image_id) {
+		$url = $this->apiEndpoint[$this->mode] . '/image/' . $image_id . '/results';
+		$headers = ['Authorization: Bearer '. $this->apiKey, 'Content-Type: application/json'];
+		$response = $this->sendGetRequest($url, $headers);
+		
+		return $response;
+	}
 	/* Will do the work of converting an equirectangular image and split it into 4 individual photos (one for each direction), and processing these photos through the models. */
 	public function create360Image($image_url, $image_group_id) {
 		$url = $this->apiEndpoint[$this->mode] . '/image/360';
-		$headers = ['Content-Type: application/json', 'Authorization: Basic '. base64_encode($this->username.":".$this->password)];
+		$headers = ['Authorization: Bearer '. $this->apiKey, 'Content-Type: application/json'];
 		$request = [
 			'url' => $image_url,
 			'models' => ["room_classification", "condition_score", "quality_score"],
@@ -64,8 +79,8 @@ class FoxyAI {
 	}
 	/* Generate a 360 Property Valuation Report when given an address and an imageGroupId */
 	public function create360Report($image_group_id, $address) {
-		$url = $this->apiEndpoint[$this->mode] . '/360-report/' , $image_group_id;
-		$headers = ['Content-Type: application/json', 'Authorization: Basic '. base64_encode($this->username.":".$this->password)];
+		$url = $this->apiEndpoint[$this->mode] . '/360-report/' . $image_group_id;
+		$headers = ['Authorization: Bearer '. $this->apiKey, 'Content-Type: application/json'];
 		$request = [
 			'address' => $address,
 			'webhookUrl' => ''
@@ -75,8 +90,8 @@ class FoxyAI {
 		return $response;
 	}
 	public function get360Report($report_id) {
-		$url = $this->apiEndpoint[$this->mode] . '/360-report/' , $report_id;
-		$headers = ['Content-Type: application/json', 'Authorization: Basic '. base64_encode($this->username.":".$this->password)];
+		$url = $this->apiEndpoint[$this->mode] . '/360-report/' . $report_id;
+		$headers = ['Authorization: Bearer '. $this->apiKey, 'Content-Type: application/json'];
 		
 		$response = $this->sendGetRequest($url, $headers);
 		if($response['status'] == 'completed') {
@@ -88,10 +103,23 @@ class FoxyAI {
 		}
 		return $response;
 	}
+	public function propertyReport($image_group_id, $street, $city, $state, $zip) {
+		$url = $this->apiEndpoint[$this->mode] . '/property-report';
+		$headers = ['Authorization: Bearer '. $this->apiKey, 'Content-Type: application/json'];
+		$request = [
+			'streetAddress' => $street,
+			'city' => $city,
+			'state' => $state,
+			'zip' => $zip,
+			'imageGroupId' => $image_group_id
+		];
+		
+		$response = $this->sendPostRequest($url, $request, $headers);
+		
+		return $response;
+	}
 	private function sendPostRequest($endpoint, $request, $headers = []) {
 		$ch = curl_init($endpoint);
-		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
-		curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
 		curl_setopt($ch, CURLOPT_POST, 1);
 		curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($request));
 		curl_setopt($ch, CURLOPT_HEADER, 0);
@@ -109,7 +137,7 @@ class FoxyAI {
 		
 		return $response;
 	}
-	private function sendGetRequest($url, $headers = []) {
+	private function sendGetRequest($endpoint, $headers = []) {
 		$ch = curl_init($endpoint);
 		curl_setopt($ch, CURLOPT_HEADER, 0);
 		curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
@@ -122,7 +150,7 @@ class FoxyAI {
 		
 		$response = json_decode($response, true);
 		
-		$this->saveLogs($request, $response);
+		$this->saveLogs([$endpoint], $response);
 		
 		return $response;
 	}

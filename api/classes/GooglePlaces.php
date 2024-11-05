@@ -40,14 +40,21 @@ class GooglePlaces {
 		
 		$response = $this->sendRequest($url, null);
 		
+		$street = null;
+		$city = null;
+		$state = null;
 		$zip = null;
 		$formatted_address = @$response['result']['formatted_address'];
 		
 		foreach(@$response['result']['address_components'] as $component) {
 			if(in_array('postal_code', $component['types'])) $zip = $component['short_name'];
+			if(in_array('street_address', $component['types']) || in_array('route', $component['types'])) $street .= $component['long_name'];
+			if(in_array('street_number', $component['types'])) $street = $component['long_name'] . " " . $street;
+			if(in_array('administrative_area_level_3', $component['types']) || in_array('locality', $component['types'])) $city = $component['long_name'];
+			if(in_array('administrative_area_level_1', $component['types'])) $state = $component['short_name'];
 		}
 		
-		return json_encode(['status' => 'success', 'zip' => $zip, 'formatted_address' => $formatted_address, 'debug' => $response]);
+		return json_encode(['status' => 'success', 'street' => $street, 'city' => $city, 'state' => $state, 'zip' => $zip, 'formatted_address' => $formatted_address, 'debug' => $response]);
 	}
 	private function sendRequest($endpoint, $request) {		
 		$ch = curl_init($endpoint);
