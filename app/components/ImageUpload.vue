@@ -2,13 +2,11 @@
     <v-container>
         <v-card flat class="mx-6 text-center cursor-pointer border" @click="uploadFiles()" v-on:drop.prevent="onDrop($event);" v-on:dragover.prevent>
             <div class="justify-self-center py-12"><v-icon size="72">mdi-cloud-upload-outline</v-icon></div>
+
+            <v-progress-linear indeterminate class="ma-1" :active="loading"></v-progress-linear>
         </v-card>
+        
         <v-card flat class="mt-2 rounded-0">
-            <v-row v-if="!!loading">
-                <v-col cols="12">
-                    <v-progress-linear indeterminate class="ma-1" :active="!!loading"></v-progress-linear>
-                </v-col>
-            </v-row>
             <v-row>
                 <v-col v-for="(val, key) in images" :key="key" cols="6">
                     <v-img :src="val" v-if="unsupportedFormats.indexOf(String(val.split('.').pop().toLowerCase())) == -1">
@@ -35,7 +33,7 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue"])
 
 const app = useNuxtApp()
-const loading = ref(false)
+const loading = ref(0)
 const images = ref([])
 const unsupportedFormats = ref(["svg", "tiff", "tif", "bmp"])
 
@@ -198,8 +196,6 @@ const _upload = (promises) => {
                 loading.value = false
             })
         }
-    }).finally(() => {
-        loading.value = false
     })
 }
 const removeItem = (index) => {

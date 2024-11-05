@@ -1,5 +1,5 @@
 <template>
-    <v-container fluid class="fill-height">
+    <v-container class="fill-height">
         <app-loader v-if="loading"></app-loader>
 
         <v-toolbar v-if="step>0 && step<4" color="transparent" class="align-self-start">
@@ -130,11 +130,11 @@
 
 <script setup>
 import { computed, watch } from 'vue';
-import { categoryItems } from '~/categories';
+import { categoryItems } from '~/thumbtack';
 
 const app = useNuxtApp()
 const route = useRoute()
-const step = ref(1)
+const step = ref(0)
 const loading = ref(false)
 const form = ref(null)
 const addressItems = ref([])
@@ -142,12 +142,16 @@ const project = ref({
     category: null,
     address: null,
     formatted_address: null,
+    street: null,
+    city: null,
+    state: null,
     zip: null,
     files: [],
     accept: null,
-    email: null
+    email: null,
+    images: []
 })
-const estimate = ref([{"area":"Bathroom - Master","name":"Install New Angle Stops","description":"Install new - valve - angle stop - better","quantity":3,"ppu":104.49,"total_cost":313.47,"diy_cost":119.07}])
+const estimate = ref([/*{"area":"Bathroom - Master","name":"Install New Angle Stops","description":"Install new - valve - angle stop - better","quantity":3,"ppu":104.49,"total_cost":313.47,"diy_cost":119.07}*/])
 const pros = ref([])
 const tosDialog = ref(false)
 const alert = ref({
@@ -181,7 +185,7 @@ const goForward = async () => {
 
         if(valid) {
             if(step.value == 3) {
-                //getEstimate()
+                getEstimate()
             }
             
             step.value++
@@ -221,8 +225,11 @@ const addressDetails = () => {
             api: 'address_details',
             pid: project.value.address
         }).then(result => {
-            project.value.zip = result.data.zip
             project.value.formatted_address = result.data.formatted_address
+            project.value.street = result.data.street
+            project.value.city = result.data.city
+            project.value.state = result.data.state
+            project.value.zip = result.data.zip
             loading.value = false
         })
     }
@@ -247,15 +254,23 @@ const getPros = () => {
     }
 }
 const getEstimate = () => {
+    loading.value = true
+
     app.$axios.post(app.$apiEndpoint + 'request.php', {
         api: 'ai',
         formatted_address: project.value.formatted_address,
+        street: project.value.street,
+        city: project.value.city,
+        state: project.value.city,
+        zip: project.value.zip,
         category: project.value.category,
         email: project.value.email,
-        images: project.value.images,
+        images: project.value.files,
         customer: route.params.src
     }).then(res => {
-        estimate.value = res.data || []
+        estimate.value = res.data.estimate || []
+        project.value.images = res.data.images || []
+        loading.value = false
     })
 }
 const progress = computed(() => {
@@ -279,10 +294,9 @@ body {
     font-family: 'helvetica', sans-serif;
 }
 .v-table {
-    zoom: 0.65;
+    zoom: 0.85;
 }
 .v-table tbody tr:nth-child(odd) {
-      background-color: #a8d3e3;
 }
 .v-data-table-header__content > span {
     font-weight: bold !important;

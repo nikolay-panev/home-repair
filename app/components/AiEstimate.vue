@@ -1,6 +1,6 @@
 <template>
     <v-container fluid class="pa-0 mt-4">
-        <v-data-table :items="props.data" :headers="headers" :group-by="[{key: 'area'}]" :items-per-page="-1" hide-default-footer density="compact">
+        <v-data-table :items="props.data" :headers="headers" :group-by="[{key: 'area'}]" :items-per-page="-1" hide-default-footer density="compact" no-data-text="Estimate not available at this stage">
             <template #group-header="{ item, columns, toggleGroup, isGroupOpen }">
                 <template :ref="(el) => { groupHeaders[item.value] = { item, toggleGroup, isGroupOpen } }" />
                     <tr>
