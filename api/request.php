@@ -98,4 +98,14 @@ if($data['api']) {
 		
 		die(json_encode($pros));
 	}
+	else if($data['api'] == 'gpt') {
+		// ChatGPT API
+		require_once(__DIR__ . "/classes/ChatGPT.php");
+		
+		$message = "Provide a cost estimate for the following service: " . $data['category'] . " in " . $data['city'] . ", " . $data['state'].". Reply briefly with a number in USD.";
+		$api = new ChatGPT($db, 'Production');
+		$response = $api->sendMessage($message);
+		
+		die(json_encode(['estimate' => $response['choices'][0]['message']['content'], 'debug' => $response]));
+	}
 }

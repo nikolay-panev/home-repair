@@ -44,12 +44,18 @@
             </v-form>
         </v-container>
 
-        <v-container v-if="step==2" class="align-self-start">
-            <p class="text-h6 font-weight-black text-center my-4">Upload photos</p>
-            <image-upload v-model="project.files"></image-upload>
-            <v-alert v-if="alert.show" variant="outlined" :type="alert.type" density="compact">{{ alert.text }}</v-alert>
+        <v-container v-if="step==2">
+            <p class="text-h6 font-weight-black text-center my-4">What's your email?</p>
             <v-form ref="form">
                 <v-row>
+                    <v-col cols="12">
+                        <v-text-field variant="outlined" label="" v-model="project.email" ref="email" clearable="" clear-icon="mdi-close" :rules="[validEmail]">
+                            <template v-slot:prepend>
+                                <v-btn variant="flat" icon="mdi-email" color="primary"></v-btn>
+                            </template>
+                        </v-text-field>
+                    </v-col>
+
                     <v-col cols="12">
                         <v-checkbox v-model="project.accept" :rules="[fieldRequired]">
                             <template v-slot:label>
@@ -61,31 +67,21 @@
             </v-form>
         </v-container>
 
-        <v-container v-if="step==3">
-            <p class="text-h6 font-weight-black text-center my-4">What's your email?</p>
-            <v-form ref="form">
-                <v-row>
-                    <v-col cols="12">
-                        <v-text-field variant="outlined" label="" v-model="project.email" ref="email" clearable="" clear-icon="mdi-close" :rules="[validEmail]">
-                            <template v-slot:prepend>
-                                <v-btn variant="flat" icon="mdi-email" color="primary"></v-btn>
-                            </template>
-                        </v-text-field>
-                    </v-col>
-                </v-row>
-            </v-form>
+        <v-container v-if="step==3" class="align-self-start">
+            <h1 class="text-h5 text-center font-weight-black py-4">{{ categoryName }}</h1>
+            <p class="text-justify font-weight-medium">Based on the information you provided and the photos you uploaded, here are some home improvement projects you may want to consider. These prices are suggestions. Actual prices may vary depending on the condition of your home and the materials you select.
+            <br/><br/><strong>Pro tip: </strong>Use these figures as a starting point for your conversation with our top-ranked pros.<br /></p>
+            
+            <p class="text-h5 text-center py-3">Estimate</p>
+
+            <p class="text-center font-weight-medium" v-if="project.estimate">
+                {{ project.estimate }}
+            </p>
+
+            <p class="text-center mt-2 py-4 text-uppercase"><strong>Click to get connected</strong></p>
         </v-container>
 
         <v-container v-if="step==4" class="align-self-start">
-            <h1 class="text-h5 text-center font-weight-black py-4">{{ categoryName }}</h1>
-            <p class="text-caption text-justify font-weight-medium">Based on the information you provided and the photos you uploaded, here are some home improvement projects you may want to consider. These prices are suggestions. Actual prices may vary depending on the condition of your home and the materials you select.
-            <br/><br/><strong>Pro tip: </strong>Use these figures as a starting point for your conversation with our top-ranked pros.</p>
-            <p class="text-center py-4"><strong>Click to get connected</strong></p>
-
-            <ai-estimate :data="estimate"></ai-estimate>
-        </v-container>
-
-        <v-container v-if="step==5" class="align-self-start">
             <h1 class="text-h5 font-weight-black py-4 text-center">Connect with a pro</h1>
             <v-container class="d-flex justify-center">
                 <svg class="primary" height="28" width="48" viewBox="0 0 16 16" fill="#009fd9"><path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0"></path><path fill="#FFF" d="M8.973 10.385a3.71 3.71 0 0 1-.564 1.957L8 13l-.409-.658a3.704 3.704 0 0 1-.564-1.957v-3.14C7.51 6.62 8.231 6.4 8.973 6.4v3.985zM4 5.69V4h8v1.69H4z"></path></svg>
@@ -104,7 +100,7 @@
             <thumbtack-pro v-for="(pro, index) in pros" :key="index" :pro="pro"></thumbtack-pro>
         </v-container>
 
-        <v-container v-if="step>0 && step<5" class="align-self-end border-t">
+        <v-container v-if="step>0 && step<4" class="align-self-end border-t">
             <v-row>
                 <v-col cols="5" class="text-left">
                     <v-btn variant="outlined" class="px-10" :elevation="0" @click="goBack()">Back</v-btn>
@@ -130,7 +126,7 @@
 
 <script setup>
 import { computed, watch } from 'vue';
-import { categoryItems } from '~/thumbtack';
+import { categoryItems } from '~/categories';
 
 const app = useNuxtApp()
 const route = useRoute()
@@ -149,9 +145,8 @@ const project = ref({
     files: [],
     accept: null,
     email: null,
-    images: []
+    estimate: null,
 })
-const estimate = ref([/*{"area":"Bathroom - Master","name":"Install New Angle Stops","description":"Install new - valve - angle stop - better","quantity":3,"ppu":104.49,"total_cost":313.47,"diy_cost":119.07}*/])
 const pros = ref([])
 const tosDialog = ref(false)
 const alert = ref({
@@ -171,27 +166,18 @@ const validEmail = (val) => {
 const goForward = async () => {
     alert.value.show = false
 
-    if(step.value <= 3) {
+    if(step.value <= 2) {
         let { valid } = await form.value.validate()
 
-        if(step.value == 2) {
-            if(!(project.value.files.length > 0)) {
-                alert.value.text = "You need to upload at least one image."
-                alert.value.type = "error"
-                alert.value.show = true
-                valid = false
-            }
-        }
-
         if(valid) {
-            if(step.value == 3) {
+            if(step.value == 2) {
                 getEstimate()
             }
             
             step.value++
         }
     }
-    else if(step.value == 4) {
+    else if(step.value == 3) {
         getPros()
 
         step.value++
@@ -257,19 +243,12 @@ const getEstimate = () => {
     loading.value = true
 
     app.$axios.post(app.$apiEndpoint + 'request.php', {
-        api: 'ai',
-        formatted_address: project.value.formatted_address,
-        street: project.value.street,
+        api: 'gpt',
         city: project.value.city,
         state: project.value.city,
-        zip: project.value.zip,
         category: project.value.category,
-        email: project.value.email,
-        images: project.value.files,
-        customer: route.params.src
     }).then(res => {
-        estimate.value = res.data.estimate || []
-        project.value.images = res.data.images || []
+        project.value.estimate = res.data.estimate
         loading.value = false
     })
 }
@@ -292,11 +271,6 @@ watch(() => project, (n) => {
 <style >
 body {
     font-family: 'helvetica', sans-serif;
-}
-.v-table {
-    zoom: 0.85;
-}
-.v-table tbody tr:nth-child(odd) {
 }
 .v-data-table-header__content > span {
     font-weight: bold !important;
