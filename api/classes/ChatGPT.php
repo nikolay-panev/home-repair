@@ -20,11 +20,11 @@ class ChatGPT {
 		$this->apiKey = $settings['api_key'];
 	}
 	public function sendMessage($message) {
-		$url = $this->apiEndpoint[$this->mode] . '/image-group';
+		$url = $this->apiEndpoint[$this->mode];
 		$headers = ['Authorization: Bearer '. $this->apiKey, 'Content-Type: application/json'];
 		$request = [
-			'model' => "gpt-4o",
-			'messages' => ["role" => "user", "content" => $message],
+			'model' => "gpt-4o-mini",
+			'messages' => [["role" => "user", "content" => $message]],
 			'temperature' => 0.3
 		];
 		$response = $this->sendPostRequest($url, $request, $headers);

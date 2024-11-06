@@ -204,7 +204,8 @@ const goBack = () => {
 const cancel = () => {
     step.value = 0
     Object.keys(project.value).forEach(key => {
-        project.value[key] = null
+        if(project.value[key].constructor === Array) project.value[key] = []
+        else project.value[key] = null
     })
 }
 const addressFind = (v) => {
@@ -285,7 +286,7 @@ const categoryName = computed(() => {
 })
 
 watch(() => project, (n) => {
-    if(n.value.files.length > 0) alert.value.show = false
+    if(n.value?.files?.length > 0) alert.value.show = false
 }, {deep: true})
 </script>
 
@@ -295,8 +296,6 @@ body {
 }
 .v-table {
     zoom: 0.85;
-}
-.v-table tbody tr:nth-child(odd) {
 }
 .v-data-table-header__content > span {
     font-weight: bold !important;
