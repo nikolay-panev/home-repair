@@ -190,7 +190,8 @@ const goBack = () => {
 const cancel = () => {
     step.value = 0
     Object.keys(project.value).forEach(key => {
-        project.value[key] = null
+        if(project.value[key].constructor === Array) project.value[key] = []
+        else project.value[key] = null
     })
 }
 const addressFind = (v) => {
