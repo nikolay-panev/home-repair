@@ -1,20 +1,21 @@
 <template>
-    <v-container>
-        <v-card flat class="mx-6 text-center cursor-pointer border" @click="uploadFiles()" v-on:drop.prevent="onDrop($event);" v-on:dragover.prevent>
-            <div class="justify-self-center py-12"><v-icon size="72">mdi-cloud-upload-outline</v-icon></div>
+    <v-container class="pa-0 ma-0">
+        <v-card flat class="text-center cursor-pointer border pa-0 ma-0" @click="uploadFiles()" v-on:drop.prevent="onDrop($event);" v-on:dragover.prevent>
+            <div class="justify-self-center py-12">
+                <v-icon size="72" class="text-lightblue">mdi-cloud-upload-outline</v-icon>
+                <p class="text-lightblue">Drag & drop or click here</p>
+            </div>
 
             <v-progress-linear indeterminate class="ma-1" :active="loading"></v-progress-linear>
         </v-card>
         
         <v-card flat class="mt-2 rounded-0">
             <v-row>
-                <v-col v-for="(val, key) in images" :key="key" cols="6">
-                    <v-img :src="val" v-if="unsupportedFormats.indexOf(String(val.split('.').pop().toLowerCase())) == -1">
+                <v-col v-for="(obj, key) in images" :key="key" cols="12" sm="12" md="6" lg="4">
+                    <v-img :src="obj.url">
                         <v-btn variant="flat" size="x-small" icon="mdi-close" @click="removeItem(key)" color="error" class="rounded-0 float-right" title="Remove image" aria-label="Remove image"></v-btn>
                     </v-img>
-                    <v-img v-else src="images/no-preview.png">
-                        <v-btn variant="flat" size="x-small" icon="mdi-close" @click="removeItem(key)" color="error" class="rounded-0 float-right" title="Remove image" aria-label="Remove image"></v-btn>
-                    </v-img>
+                    <v-select v-model="obj.tag" chips clearable variant="underlined" :items="rooms" :error="obj.tag==null" :error-messages="obj.tag==null? 'This is a required field' : ''"></v-select>
                 </v-col>
             </v-row>
         </v-card>
@@ -23,17 +24,20 @@
 
 <script setup>
 import heic2any from "heic2any"
+import { rooms } from '~/rooms';
 
 const props = defineProps({
     modelValue: {required: true, default: () => []},
     autoResize: {type: Boolean, default: () => false, required: false},
     minSize: {type: Number, default: () => 400, required: false},
     maxSize: {type: Number, default: () => -1, required: false},
+    address: {type: String, default: () => "", required: false},
+    group_id: {type: String, required: true}
 })
-const emit = defineEmits(["update:modelValue"])
+const emit = defineEmits(["update:modelValue", "upload-error"])
 
 const app = useNuxtApp()
-const loading = ref(0)
+const loading = ref(false)
 const images = ref([])
 const unsupportedFormats = ref(["svg", "tiff", "tif", "bmp"])
 
@@ -47,7 +51,7 @@ const uploadFiles = () => {
     input.click()
 }
 const onDrop = (ev) => {
-    let files = Array.from(ev.dataTransfer.files).filter(item => ["jpg", "jpeg", "gif", "png", "bmp", "tiff", "tif", "svg", "webp", "heic", "heif"].indexOf(item.name.split(".").pop().toLowerCase()) != -1)
+    let files = Array.from(ev.dataTransfer.files).filter(item => ["jpg", "jpeg", "gif", "png", "bmp", "tiff", "tif", "webp", "heic", "heif"].indexOf(item.name.split(".").pop().toLowerCase()) != -1)
 
     // client-side resize all images
     let promises = [];
@@ -154,7 +158,7 @@ const DataURIToBlob = (dataURI) => {
 const upload = (event) => {
     let files = event.target.files
    
-    // client-side resize all images
+    // client-side resize & convert all images
     let promises = [];
     for(let i=0; i<files.length; i++) {
         let resized = resize(files[i])
@@ -165,7 +169,6 @@ const upload = (event) => {
 }
 
 const _upload = (promises) => {
-    let chunkSize = 2
     let uploaded = 0
 
     loading.value = true
@@ -173,29 +176,42 @@ const _upload = (promises) => {
     Promise.all(promises).then((results) => {
         let successful = results.filter(item => item != false)
 
-        // Split files into chunks
-        for(let i=0; i<successful.length; i+=chunkSize) {
-            const formData = new FormData();
-            formData.append("operation", "imageUpload");
-            for(let j=i; j<Math.min(i+chunkSize, successful.length); j++) {
-                formData.append("file[]", DataURIToBlob(successful[j].base64), successful[j].name)
-            }
-
-            app.$axios.post(app.$apiEndpoint+"upload.php", formData).then(res => {
-                if(res.data?.items.length > 0) {
-                    uploaded += res.data.items.length
-
-                    res.data.items.forEach(img => {
-                        images.value.push(app.$apiEndpoint + img)
-                    })
-                }
-            }).finally(() => {
-                emit('update:modelValue', images.value)
-                if(files.length == uploaded) loading.value = false
-            }).catch(() => {
-                loading.value = false
-            })
+        const formData = new FormData()
+        for(let i=0; i<successful.length; i++) {
+            formData.append("operation", "imageUpload")
+            formData.append("file[]", DataURIToBlob(successful[i].base64), successful[i].name)
         }
+
+        app.$axios.post(app.$apiEndpoint+"upload.php", formData).then(res => {
+            if(res.data?.items.length > 0) {
+                uploaded += res.data.items.length
+
+                createImages(res.data.items.map(img => app.$apiEndpoint + img)).then((r) => {
+                    images.value = r.data
+
+                    emit('update:modelValue', images.value)
+                    loading.value = false
+                }).catch(() => {
+                    emit('upload-error', "Unable to create image(s)")
+                    loading.value = false
+                })
+            }
+            else {
+                emit('upload-error', "Unable to upload image(s)")
+                loading.value = false
+            }
+        }).catch(() => {
+            emit('upload-error', "Unable to upload image(s)")
+            loading.value = false
+        })
+    })
+}
+
+const createImages = (img) => {
+    return app.$axios.post(app.$apiEndpoint + "request.php", {
+        'api': 'create_image',
+        'group_id': props.group_id,
+        'images': img
     })
 }
 const removeItem = (index) => {
@@ -230,5 +246,8 @@ watch(() => props.modelValue, (newValue) => {
 }
 .no-preview {
     min-height: 280px;
+}
+.text-lightblue {
+    color: #56adff;
 }
 </style>

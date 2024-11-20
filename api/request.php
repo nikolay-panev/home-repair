@@ -25,21 +25,10 @@ if($data['api']) {
 		require_once(__DIR__ . "/classes/FoxyAI.php");
 		
 		$api = new FoxyAI($db, 'Sandbox');
-		if(is_array($data['images']) && count($data['images']) > 0) {
-			$group_name = $data['customer'] . "-" . date("YmdHis");
-			$response = $api->createImageGroup($group_name, $data['formatted_address']);
-			$group_id = $response['_id'];
-			
-			if($group_id) {
-				$images = [];
-				foreach($data['images'] as $image) {
-					$response = $api->createImage($image, $group_id);
-					$images[] = $response['url'];
-				}
-				
-				$report = $api->propertyReport($group_id, $data['street'], $data['city'], $data['state'], $data['zip']);
-				
-				if(is_array($report['areas']) && count($report['areas']) > 0) {
+		if($data['group_id']) {
+			$report = $api->propertyReport($data['group_id'], $data['street'], $data['city'], $data['state'], $data['zip']);
+			$estimate = $api->createEstimates($report, $data['tags']);
+			//if(is_array($report['areas']) && count($report['areas']) > 0) {
 				/*
 					$stmt = $db->prepare('INSERT INTO `reports` (`uuid`, `category`, `address`, `email`, `images`, `customer`, `status`) VALUES (:uuid, :category, :address, :email, :images, :customer, :status)');
 					$stmt->bindValue(':uuid', $report['id']);
@@ -70,19 +59,50 @@ if($data['api']) {
 					$stmt->bindValue(':id', $report_id);
 					$stmt->execute();
 				*/	
-					$estimate = [];
-					foreach($report['areas'] as $area) {
-						foreach($area['remodelProjects'] as $project) {
-							foreach($project['repairItems'] as $item) {
-								$estimate[] = ['area' => $area['label'], 'name' => $project['name'], 'description' => $item['description'], 'quantity' => $item['quantity'], 'ppu' => $item['ppu'], 'total_cost' => $item['totalCost']];
-							}
-						}
-					}
+					$estimate = $api->createEstimates($report, $data['tags']);
 					
-					die(json_encode(['estimate' => $estimate, 'images' => $images]));
-				}
-			}
+					
+			//}
+			die(json_encode(['estimate' => $estimate]));
 		}
+	}
+	else if($data['api'] == 'create_group') {
+		// FoxyAI API
+		require_once(__DIR__ . "/classes/FoxyAI.php");
+		
+		$group_name = date("YmdHis");
+		
+		$api = new FoxyAI($db, 'Sandbox');
+		$response = $api->createImageGroup($group_name, $data['formatted_address']);
+		
+		die(json_encode(['group_id' => $response['_id']]));
+	}
+	else if($data['api'] == 'create_image') {
+		// FoxyAI API
+		$output = [];
+		
+		require_once(__DIR__ . "/classes/FoxyAI.php");
+		
+		if($data['group_id'] && is_array($data['images']) && count($data['images']) > 0) {
+			$api = new FoxyAI($db, 'Sandbox');
+			$response = $api->batchCreateImages($data['images'], $data['group_id']);
+			
+			$timeout = 3;
+			$results = [];
+			while($timeout > 0) {
+				sleep(1);
+				$results = $api->getImageGroupResults($data['group_id']);
+
+				if($results['status'] == "completed") break;
+				$timeout--;
+			}
+			
+			foreach($results['images'] as $image) {
+				$output[] = ['id' => $image['_id'], 'tag' => @$image['models']['room_classification']['results'][0]['class'], 'url' => $image['url']];
+			}
+			//$output = array_map(function($item) { return array_merge($item, ['tag' => null]); }, @$response['images']);
+		}
+		die(json_encode($output));
 	}
 	else if($data['api'] == 'pros') {
 		// Thumbtack API

@@ -40,14 +40,21 @@
                             </template>
                         </v-autocomplete>
                     </v-col>
+
+                    <v-col cols="12">
+                        <v-alert v-if="alert.show" variant="outlined" :type="alert.type" density="compact">{{ alert.text }}</v-alert>
+                    </v-col>
                 </v-row>
             </v-form>
         </v-container>
 
         <v-container v-if="step==2" class="align-self-start">
             <p class="text-h6 font-weight-black text-center my-4">Upload photos</p>
-            <image-upload v-model="project.files"></image-upload>
+
+            <foxy-image-upload v-model="project.files" :group_id="project.group_id" @upload-error="showError"></foxy-image-upload>
+
             <v-alert v-if="alert.show" variant="outlined" :type="alert.type" density="compact">{{ alert.text }}</v-alert>
+
             <v-form ref="form">
                 <v-row>
                     <v-col cols="12">
@@ -78,11 +85,8 @@
 
         <v-container v-if="step==4" class="align-self-start">
             <h1 class="text-h5 text-center font-weight-black py-4">{{ categoryName }}</h1>
-            <p class="text-caption text-justify font-weight-medium">Based on the information you provided and the photos you uploaded, here are some home improvement projects you may want to consider. These prices are suggestions. Actual prices may vary depending on the condition of your home and the materials you select.
-            <br/><br/><strong>Pro tip: </strong>Use these figures as a starting point for your conversation with our top-ranked pros.</p>
-            <p class="text-center py-4"><strong>Click to get connected</strong></p>
 
-            <ai-estimate :data="estimate"></ai-estimate>
+            <foxy-estimate :data="estimate"></foxy-estimate>
         </v-container>
 
         <v-container v-if="step==5" class="align-self-start">
@@ -102,6 +106,12 @@
             </v-container>
 
             <thumbtack-pro v-for="(pro, index) in pros" :key="index" :pro="pro"></thumbtack-pro>
+
+            <v-row>
+                    <v-col cols="12" class="text-center">
+                        <v-btn class="px-6 mt-6" color="primary" :elevation="0" @click="cancel()">Price another project</v-btn>
+                    </v-col>
+                </v-row>
         </v-container>
 
         <v-container v-if="step>0 && step<5" class="align-self-end border-t">
@@ -147,11 +157,12 @@ const project = ref({
     state: null,
     zip: null,
     files: [],
+    group_id: null,
     accept: null,
     email: null,
-    images: []
+    //images: []
 })
-const estimate = ref([/*{"area":"Bathroom - Master","name":"Install New Angle Stops","description":"Install new - valve - angle stop - better","quantity":3,"ppu":104.49,"total_cost":313.47,"diy_cost":119.07}*/])
+const estimate = ref([{"room": "Bathroom - Master", "name": "Bathroom - Paint walls", "total_cost": "723", "data": [{"name":"Install New Angle Stops","description":"Install new - valve - angle stop - better","quantity":3,"ppu":104.49,"total_cost":313.47}]}])
 const pros = ref([])
 const tosDialog = ref(false)
 const alert = ref({
@@ -181,9 +192,22 @@ const goForward = async () => {
                 alert.value.show = true
                 valid = false
             }
+            else {
+                for(let i=0; i<project.value.files.length; i++) {
+                    if(project.value.files[i].tag == null) {
+                        valid = false
+                    }
+                }
+            }
         }
 
         if(valid) {
+            if(step.value == 1) {
+                if(project.value.group_id == null) {
+                    project.value.group_id = await createGroup()
+                    if(!project.value.group_id) return
+                }
+            }
             if(step.value == 3) {
                 getEstimate()
             }
@@ -204,12 +228,12 @@ const goBack = () => {
 const cancel = () => {
     step.value = 0
     Object.keys(project.value).forEach(key => {
-        if(project.value[key].constructor === Array) project.value[key] = []
+        if(project.value[key]?.constructor === Array) project.value[key] = []
         else project.value[key] = null
     })
 }
 const addressFind = (v) => {
-    if(v?.length > 5) {
+    if(v?.length > 6) {
         app.$axios.post(app.$apiEndpoint + 'request.php', {
             api: 'address',
             request: v
@@ -232,12 +256,36 @@ const addressDetails = () => {
             project.value.state = result.data.state
             project.value.zip = result.data.zip
             loading.value = false
+        }).catch(() => {
+            showError("Server connection error. Please retry or contact support.")
+            loading.value = false
         })
     }
 }
 const addressReset = () => {
     project.value.address = null
+    project.value.street = null
+    project.value.city = null
+    project.value.state = null
+    project.value.zip = null
+    project.value.formatted_address = null
     addressItems.value.length = 0
+}
+const createGroup = async () => {
+    return app.$axios.post(app.$apiEndpoint + "request.php", {
+        'api': 'create_group',
+        'formatted_address': project.value.formatted_address,
+    }).then((res) => {
+        return res.data?.group_id
+    }).catch(() => {
+        showError("Server connection error. Please retry or contact support.")
+        return null
+    })
+}
+const showError = (msg) => {
+    alert.value.text = msg
+    alert.value.type = 'error'
+    alert.value.show = true
 }
 const getPros = () => {
     if(project.value.zip && project.value.category) {
@@ -259,7 +307,7 @@ const getEstimate = () => {
 
     app.$axios.post(app.$apiEndpoint + 'request.php', {
         api: 'ai',
-        formatted_address: project.value.formatted_address,
+        group_id: project.value.group_id,
         street: project.value.street,
         city: project.value.city,
         state: project.value.city,
@@ -267,10 +315,13 @@ const getEstimate = () => {
         category: project.value.category,
         email: project.value.email,
         images: project.value.files,
-        customer: route.params.src
+        customer: route.params.src,
+        tags: tags.value
     }).then(res => {
-        estimate.value = res.data.estimate || []
-        project.value.images = res.data.images || []
+        estimate.value = res.data?.estimate || []
+        //project.value.images = res.data.images || []
+        loading.value = false
+    }).catch(() => {
         loading.value = false
     })
 }
@@ -283,6 +334,9 @@ const nextBtnText = computed(() => {
 })
 const categoryName = computed(() => {
     return categoryItems.value.filter((item) => item.value == project.value.category)?.[0]?.title
+})
+const tags = computed(() => {
+    return project.value.files.map((item) => item.tag)
 })
 
 watch(() => project, (n) => {

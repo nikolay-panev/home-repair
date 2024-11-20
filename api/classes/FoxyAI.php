@@ -7,6 +7,23 @@ class FoxyAI {
 	private $logPath = null;
 	private $clientId = null;
 	
+	private $custom_projects = [
+		'Bathroom - Master' => ["Plumbing"],
+		'Bathroom' => ["Plumbing"],
+		'Bedroom - Master' => ["Painting - Interior"],
+		'Bedroom' => ["Painting - Interior"],
+		'Dining Room' => [],
+		'Entire House' => ["Cleaning - Exterior", "Electrical", "Plumbing"],
+		'Entry Foyer' => [],
+		'Exterior Grounds' => ["Landscaping"],
+		'Family Room' => [],
+		'Hall Way' => [],
+		'Kitchen' => [],
+		'Laundry' => [],
+		'Living Room' => ["Painting - Interior"],
+		'Other Room' => []
+	];
+	
 	public function __construct($db, $mode="Sandbox", $clientId=null) {
 		$this->db = $db;
 		$this->mode = $mode;
@@ -43,14 +60,35 @@ class FoxyAI {
 		
 		return $response;
 	}
-	/* The image analysis allows you to post a image url and receive information about those images. */
+	/* Get an image group results */
+	public function getImageGroupResults($group_id) {
+		$url = $this->apiEndpoint[$this->mode] . '/image-group/' . $group_id . '/results';
+		$headers = ['Authorization: Bearer '. $this->apiKey, 'Content-Type: application/json'];
+		
+		$response = $this->sendGetRequest($url, $headers);
+		
+		return $response;
+	}
+	/* The image analysis allows you to post an image url and receive information about the image. */
 	public function createImage($image_url, $image_group_id) {
 		$url = $this->apiEndpoint[$this->mode] . '/image';
 		$headers = ['Authorization: Bearer '. $this->apiKey, 'Content-Type: application/json'];
 		$request = [
 			'url' => $image_url,
-			'models' => ["room_classification", "condition_score", "quality_score"],
+			'models' => ["room_classification", "scene_classification", "condition_score", "quality_score"],
 			'imageGroups' => [$image_group_id]
+		];
+		$response = $this->sendPostRequest($url, $request, $headers);
+		
+		return $response;
+	}
+	/* The image analysis allows you to post an array of image urls and receive information about those images. */
+	public function batchCreateImages($image_urls, $image_group_id) {
+		$url = $this->apiEndpoint[$this->mode] . '/image/batch';
+		$headers = ['Authorization: Bearer '. $this->apiKey, 'Content-Type: application/json'];
+		$request = [
+			'imageGroups' => [$image_group_id],
+			'images' => array_map(function($item) { return ['url' => $item, 'models' => ["room_classification", "scene_classification", "condition_score", "quality_score"]]; }, $image_urls)
 		];
 		$response = $this->sendPostRequest($url, $request, $headers);
 		
@@ -118,6 +156,47 @@ class FoxyAI {
 		
 		return $response;
 	}
+	public function createEstimates($report, $rooms, $depth = 0) {
+		$areas = array_map(function($item) { return $item['label']; }, $report['areas']);
+		
+		if(count(array_diff($rooms, $areas)) == 0) {
+			return $this->getEstimate($report, $rooms);
+		}
+		else {
+			if($depth == 0) {
+				$rooms = array_map(function($item) { return $item == "Bathroom" ? "Bathroom - Master" : $item; }, $rooms);
+			
+				return $this->createEstimates($report, $rooms, $depth+1);
+			}
+			else if($depth == 1) {
+				$rooms = array_map(function($item) { return $item == "Bedroom" ? "Bedroom - Master" : $item; }, $rooms);
+				
+				return $this->createEstimates($report, $rooms, $depth+1);
+			}
+			else return $this->getEstimate($report, $rooms);
+		}
+	}
+	private function getEstimate($report, $rooms) {
+		$estimate = [];
+		
+		foreach($report['areas'] as $area) {
+			if(in_array($area['label'], $rooms)) {
+				$temp = ['room' => $area['label'], 'name' => $area['label'] . ' - Complete Renovation', 'total_cost' => round($area['areaTotal']), 'data' => []];
+				
+				$data = [];
+				foreach($area['remodelProjects'] as $project) {
+					foreach($project['repairItems'] as $item) {						
+						$data[] = ['name' => $project['name'], 'description' => $item['description'], 'quantity' => $item['quantity'], 'ppu' => $item['ppu'], 'total_cost' => $item['totalCost']];
+					}
+				}
+				
+				$temp['data'] = $data;
+				$estimate[] = $temp;
+			}
+		}
+		
+		return $estimate;
+	}
 	private function sendPostRequest($endpoint, $request, $headers = []) {
 		$ch = curl_init($endpoint);
 		curl_setopt($ch, CURLOPT_POST, 1);
@@ -157,8 +236,7 @@ class FoxyAI {
 	private function saveLogs($request, $response) {
 		if(!$this->logPath) return;
 		
-        $path = rtrim($this->logPath, "/");
-        $path .= '/'.date('Y').'/'.date('m').'/'.date('d');
+        $path = rtrim($this->logPath, "/") . '/'.date('Ymd');
         if(!is_dir($path)) mkdir($path, 0777, true);
 
         return file_put_contents($path . '/' . __CLASS__ . '.log', date('YmdHis')."\t".json_encode($request)."\t".json_encode($response) . "\r\n", FILE_APPEND);
