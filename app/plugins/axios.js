@@ -17,7 +17,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     return {
         provide: {
             axios: a,
-            apiEndpoint: 'https://homerepair.digitaldevelopments.tech/api/',
+            apiEndpoint: 'https://app.reconai.realestate/api/',
         },
     }
 })

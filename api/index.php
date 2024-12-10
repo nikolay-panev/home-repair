@@ -5,6 +5,8 @@ require_once(__DIR__ . "/classes/MySQL.php");
 $operations = ['select', 'update', 'insert'];
 $tables = [];
 
+$data = json_decode(file_get_contents('php://input'), true);
+
 if($data && is_array($data) && count($data) > 0) {
 	if(in_array($data['operation'], $operations) && $data['table'] && (in_array($data['table'], $tables) || empty($tables))) {
 		$api = new APIMySQL($db);

@@ -17,8 +17,9 @@ logs
 .DS_Store
 .fleet
 .idea
-# Backend test file
+# Backend files
 api/test.php
+api/config.php
 
 # Local env files
 .env

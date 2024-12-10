@@ -7,23 +7,6 @@ class FoxyAI {
 	private $logPath = null;
 	private $clientId = null;
 	
-	private $custom_projects = [
-		'Bathroom - Master' => ["Plumbing"],
-		'Bathroom' => ["Plumbing"],
-		'Bedroom - Master' => ["Painting - Interior"],
-		'Bedroom' => ["Painting - Interior"],
-		'Dining Room' => [],
-		'Entire House' => ["Cleaning - Exterior", "Electrical", "Plumbing"],
-		'Entry Foyer' => [],
-		'Exterior Grounds' => ["Landscaping"],
-		'Family Room' => [],
-		'Hall Way' => [],
-		'Kitchen' => [],
-		'Laundry' => [],
-		'Living Room' => ["Painting - Interior"],
-		'Other Room' => []
-	];
-	
 	public function __construct($db, $mode="Sandbox", $clientId=null) {
 		$this->db = $db;
 		$this->mode = $mode;
@@ -75,7 +58,7 @@ class FoxyAI {
 		$headers = ['Authorization: Bearer '. $this->apiKey, 'Content-Type: application/json'];
 		$request = [
 			'url' => $image_url,
-			'models' => ["room_classification", "scene_classification", "condition_score", "quality_score"],
+			'models' => ["room_classification", "condition_score", "quality_score"],
 			'imageGroups' => [$image_group_id]
 		];
 		$response = $this->sendPostRequest($url, $request, $headers);
@@ -88,7 +71,7 @@ class FoxyAI {
 		$headers = ['Authorization: Bearer '. $this->apiKey, 'Content-Type: application/json'];
 		$request = [
 			'imageGroups' => [$image_group_id],
-			'images' => array_map(function($item) { return ['url' => $item, 'models' => ["room_classification", "scene_classification", "condition_score", "quality_score"]]; }, $image_urls)
+			'images' => array_map(function($item) { return ['url' => $item, 'models' => ["room_classification", "condition_score", "quality_score"]]; }, $image_urls)
 		];
 		$response = $this->sendPostRequest($url, $request, $headers);
 		
@@ -181,6 +164,33 @@ class FoxyAI {
 		
 		foreach($report['areas'] as $area) {
 			if(in_array($area['label'], $rooms)) {
+				$categories = [];
+				foreach($area['remodelProjects'] as $project) {
+					foreach($project['repairItems'] as $item) {
+						if(!in_array($item['category'], $categories)) $categories[] = $item['category'];
+					}
+				}
+				
+				if(count($categories) > 1) {
+					foreach($categories as $category) {
+						$temp = ['room' => $area['label'], 'name' => $area['label'] . ' - ' . $category, 'total_cost' => 0, 'data' => []];
+						
+						$data = [];
+						$categoryTotal = 0;
+						foreach($area['remodelProjects'] as $project) {
+							foreach($project['repairItems'] as $item) {
+								if($item['category'] == $category) {
+									$categoryTotal += $item['totalCost'];
+									$data[] = ['name' => $project['name'], 'description' => $item['description'], 'quantity' => $item['quantity'], 'ppu' => $item['ppu'], 'total_cost' => $item['totalCost']];
+								}
+							}
+						}
+						$temp['total_cost'] = $categoryTotal;
+						$temp['data'] = $data;
+						$estimate[] = $temp;
+					}
+				}
+						
 				$temp = ['room' => $area['label'], 'name' => $area['label'] . ' - Complete Renovation', 'total_cost' => round($area['areaTotal']), 'data' => []];
 				
 				$data = [];

@@ -28,41 +28,20 @@ if($data['api']) {
 		if($data['group_id']) {
 			$report = $api->propertyReport($data['group_id'], $data['street'], $data['city'], $data['state'], $data['zip']);
 			$estimate = $api->createEstimates($report, $data['tags']);
-			//if(is_array($report['areas']) && count($report['areas']) > 0) {
-				/*
-					$stmt = $db->prepare('INSERT INTO `reports` (`uuid`, `category`, `address`, `email`, `images`, `customer`, `status`) VALUES (:uuid, :category, :address, :email, :images, :customer, :status)');
-					$stmt->bindValue(':uuid', $report['id']);
-					$stmt->bindValue(':category', $data['category']);
-					$stmt->bindValue(':address', $data['formatted_address']);
-					$stmt->bindValue(':email', $data['email']);
-					$stmt->bindValue(':images', json_encode($data['images']));
-					$stmt->bindValue(':customer', $data['customer']);
-					$stmt->bindValue(':status', $report['status']);
-					$stmt->execute();
-					$report_id = $db->lastInsertId();
-					
-					if($report['status'] == "completed") {
-						// Store pdf on local server
-						file_put_contents(STORAGE_PATH . "/reports/" . $report['id'] . ".pdf", file_get_contents($report['downloadUrl']));
-						
-						$stmt = $db->prepare('UPDATE `reports` SET `report_file` = :report_file WHERE `id` = :id');
-						$stmt->bindValue(':report_file', STORAGE_URL . "reports/" . $report['id'] . ".pdf");
-						$stmt->bindValue(':id', $report_id);
-						$stmt->execute();
-					}
-					
-					// Get 360 report
-					$info = $api->get360Report($report['id']);
-					
-					$stmt = $db->prepare('UPDATE `reports` SET `report_json` = :report_json WHERE `id` = :id');
-					$stmt->bindValue(':report_json', json_encode($info));
-					$stmt->bindValue(':id', $report_id);
-					$stmt->execute();
-				*/	
-					$estimate = $api->createEstimates($report, $data['tags']);
-					
-					
-			//}
+			
+			// Save the report in compressed format
+			$stmt = $db->prepare('INSERT INTO `reports` (`report_id`, `image_group_id`, `customer`, `category`, `areas`, `address`, `email`, `data`, `created`) VALUES (:report_id, :image_group_id, :customer, :category, :areas, :address, :email, :data, :created)');
+			$stmt->bindValue(':report_id', $report['_id']);
+			$stmt->bindValue(':image_group_id', $data['group_id']);
+			$stmt->bindValue(':customer', ($data['customer'] ? $data['customer'] : "RECONai"));
+			$stmt->bindValue(':category', $data['category']);
+			$stmt->bindValue(':areas', implode(",", $data['tags']));
+			$stmt->bindValue(':address', $data['formatted_address']);
+			$stmt->bindValue(':email', $data['email']);
+			$stmt->bindValue(':data', gzcompress(json_encode($report)));
+			$stmt->bindValue(':created', date("Y-m-d H:i:s"));
+			$stmt->execute();
+
 			die(json_encode(['estimate' => $estimate]));
 		}
 	}
@@ -93,14 +72,22 @@ if($data['api']) {
 				sleep(1);
 				$results = $api->getImageGroupResults($data['group_id']);
 
-				if($results['status'] == "completed") break;
+				if(@$results['status'] == "completed") break;
 				$timeout--;
 			}
 			
-			foreach($results['images'] as $image) {
-				$output[] = ['id' => $image['_id'], 'tag' => @$image['models']['room_classification']['results'][0]['class'], 'url' => $image['url']];
+			if(@$results['status'] == "completed") {
+				foreach($results['images'] as $image) {
+					$tag = is_array($image['models']['room_classification']['results']) ? $image['models']['room_classification']['results'][0]['class'] : null;
+					
+					$output[] = ['id' => $image['_id'], 'tag' => $tag, 'url' => $image['url']];
+				}
 			}
-			//$output = array_map(function($item) { return array_merge($item, ['tag' => null]); }, @$response['images']);
+			else {
+				foreach($data['images'] as $image) {
+					$output[] = ['id' => null, 'tag' => null, 'url' => $image];
+				}
+			}
 		}
 		die(json_encode($output));
 	}
@@ -117,15 +104,5 @@ if($data['api']) {
 		}
 		
 		die(json_encode($pros));
-	}
-	else if($data['api'] == 'gpt') {
-		// ChatGPT API
-		require_once(__DIR__ . "/classes/ChatGPT.php");
-		
-		$message = "Provide a cost estimate for the following service: " . $data['category'] . " in " . $data['city'] . ", " . $data['state'].". Reply briefly with a number in USD.";
-		$api = new ChatGPT($db, 'Production');
-		$response = $api->sendMessage($message);
-		
-		die(json_encode(['estimate' => $response['choices'][0]['message']['content'], 'debug' => $response]));
 	}
 }

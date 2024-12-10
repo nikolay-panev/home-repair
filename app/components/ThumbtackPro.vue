@@ -1,10 +1,10 @@
 <template>
-    <v-card :elevation="0" class="pa-2 my-4 cursor-pointer" color="rgb(245,245,245)" @click.prevent="clickIntercept">
+    <v-card :elevation="0" class="pa-2 my-4 cursor-pointer" color="rgb(245,245,245)" @click.prevent="clickIntercept()">
         <v-row>
-            <v-col cols="3">
+            <v-col cols="4" sm="4" md="3" lg="2">
                 <v-img :src="props.pro.image_url" rounded="lg" :eager="true"></v-img>
             </v-col>
-            <v-col cols="9">
+            <v-col cols="8" sm="8" md="9" lg="10" class="my-auto">
                 <p class="text-uppercase font-weight-bold text-body-2">{{ props.pro.business_name }}</p>
                 <p class="text-body-2"><v-icon>mdi-map-marker-outline</v-icon> {{ props.pro.business_location }}</p>
                 <v-container fluid class="pa-1">
@@ -65,7 +65,7 @@ const clickIntercept = () => {
     app.$axios.post(app.$apiEndpoint, {
         operation: "insert",
         table: "leads",
-        data: [{"customer": route.params.src, "event": "click", "url": props.pro.request_flow_iframe_url}]
+        data: [{"customer": (route.params.src || "RECONai"), "event": "click", "url": props.pro.request_flow_iframe_url}]
     })
     
     //window.open(props.pro.request_flow_iframe_url, "_blank")
@@ -76,7 +76,6 @@ const handleMessageEvent = (event) => {
         dialog.value = false
     }
 }
-
 onMounted(() => {
     window.addEventListener('message', handleMessageEvent)
 })

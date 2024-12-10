@@ -18,7 +18,7 @@
                         <p class="text-h6 font-weight-bold py-2">Get a price. Find a Pro</p>
                         <v-autocomplete variant="outlined" density="compact" label="Describe your project or problem" v-model="project.category" :items="categoryItems" :rules="[fieldRequired]">
                             <template v-slot:append>
-                                <v-btn size="48" color="primary" elevation="0" style="margin-left:-20px" @click="goForward()"><v-icon color="white" size="large">mdi-magnify</v-icon></v-btn>
+                                <v-btn size="48" class="rounded-ts-0 rounded-bs-0 px-6" color="primary" elevation="0" style="margin-left:-20px" @click="goForward()"><v-icon color="white" size="large">mdi-magnify</v-icon></v-btn>
                             </template>
                         </v-autocomplete>
                     </v-col>
@@ -312,9 +312,9 @@ const getEstimate = () => {
         city: project.value.city,
         state: project.value.city,
         zip: project.value.zip,
+        formatted_address: project.value.formatted_address,
         category: project.value.category,
         email: project.value.email,
-        images: project.value.files,
         customer: route.params.src,
         tags: tags.value
     }).then(res => {
