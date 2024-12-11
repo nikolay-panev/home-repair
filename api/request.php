@@ -10,21 +10,21 @@ if($data['api']) {
 		// Google Places API
 		require_once(__DIR__ . "/classes/GooglePlaces.php");
 		
-		$api = new GooglePlaces($db, 'Sandbox');
+		$api = new GooglePlaces($db, 'Production');
 		die($api->getAddress($data['request']));
 	}
 	else if($data['api'] == 'address_details') {
 		// Google Places API
 		require_once(__DIR__ . "/classes/GooglePlaces.php");
 		
-		$api = new GooglePlaces($db, 'Sandbox');
+		$api = new GooglePlaces($db, 'Production');
 		die($api->getAddressDetails($data['pid']));
 	}
 	else if($data['api'] == 'ai') {
 		// FoxyAI API
 		require_once(__DIR__ . "/classes/FoxyAI.php");
 		
-		$api = new FoxyAI($db, 'Sandbox');
+		$api = new FoxyAI($db, 'Production');
 		if($data['group_id']) {
 			$report = $api->propertyReport($data['group_id'], $data['street'], $data['city'], $data['state'], $data['zip']);
 			$estimate = $api->createEstimates($report, $data['tags']);
@@ -51,7 +51,7 @@ if($data['api']) {
 		
 		$group_name = date("YmdHis");
 		
-		$api = new FoxyAI($db, 'Sandbox');
+		$api = new FoxyAI($db, 'Production');
 		$response = $api->createImageGroup($group_name, $data['formatted_address']);
 		
 		die(json_encode(['group_id' => $response['_id']]));
@@ -63,13 +63,13 @@ if($data['api']) {
 		require_once(__DIR__ . "/classes/FoxyAI.php");
 		
 		if($data['group_id'] && is_array($data['images']) && count($data['images']) > 0) {
-			$api = new FoxyAI($db, 'Sandbox');
+			$api = new FoxyAI($db, 'Production');
 			$response = $api->batchCreateImages($data['images'], $data['group_id']);
 			
-			$timeout = 3;
+			$timeout = 1;
 			$results = [];
 			while($timeout > 0) {
-				sleep(1);
+				//sleep(1);
 				$results = $api->getImageGroupResults($data['group_id']);
 
 				if(@$results['status'] == "completed") break;
@@ -95,7 +95,7 @@ if($data['api']) {
 		// Thumbtack API
 		require_once(__DIR__ . "/classes/Thumbtack.php");
 		
-		$api = new Thumbtack($db, 'Sandbox');
+		$api = new Thumbtack($db, 'Production');
 		$response = $api->getPros($data['zip'], $data['category']);
 		$pros = $response['results'];
 		

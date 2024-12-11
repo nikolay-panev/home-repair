@@ -213,7 +213,7 @@ const _upload = (promises) => {
                 uploaded += res.data.items.length
                 
                 createImages(res.data.items.map(img => app.$apiEndpoint + img)).then((r) => {
-                    images.value = r.data
+                    images.value = images.value.concat(r.data)
 
                     emit('update:modelValue', images.value)
                     loading.value = false

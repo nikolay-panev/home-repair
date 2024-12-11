@@ -31,4 +31,13 @@ export default defineNuxtConfig({
       })
     },
 	],
+  vite: {
+    css: {
+      preprocessorOptions: {
+        sass: {
+          api: 'modern'
+        }
+      }
+    }
+  }
 })
