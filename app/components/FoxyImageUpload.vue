@@ -23,8 +23,8 @@
 </template>
 
 <script setup>
-import heic2any from "heic2any"
 import { rooms } from '~/rooms';
+import { HeifDecoder } from 'libheif-js'
 
 const props = defineProps({
     modelValue: {required: true, default: () => []},
@@ -53,7 +53,7 @@ const uploadFiles = () => {
 const onDrop = (ev) => {
     let files = Array.from(ev.dataTransfer.files).filter(item => ["jpg", "jpeg", "gif", "png", "bmp", "tiff", "tif", "webp", "heic", "heif"].indexOf(item.name.split(".").pop().toLowerCase()) != -1)
 
-    // client-side resize all images
+    // client-side resize/convert all images
     let promises = [];
     for(let i=0; i<files.length; i++) {
         let resized = resize(files[i])
@@ -74,11 +74,36 @@ const resize = (image) => {
         let ext = null
         let name = null
 
-        if(parts.length > 1) ext = parts.pop()
+        if(parts.length > 1) ext = parts.pop().toLowerCase()
 
-        // Apple's heic/heif images are converted to jpeg using 3rd party library heic2any
+        // Apple's heic/heif images are converted to jpeg using 3rd party library
         if(ext == 'heic' || ext == 'heif') {
-            image = await heic2any({ blob: image, toType: "image/jpeg" })
+            const decoder = new HeifDecoder()
+            const buffer = await image.arrayBuffer()
+            const data = await decoder.decode(buffer)
+            image = data[0]
+            
+            let canvas = document.createElement('canvas')
+            let ctx = canvas.getContext('2d')
+
+            canvas.width = image.get_width()
+            canvas.height = image.get_height()  
+            const imageData = ctx.createImageData(canvas.width, canvas.height)
+
+            await new Promise((res, rej) => {
+                image.display(imageData, (displayData) => {
+                    if (!displayData) {
+                        return rej(new Error('HEIF processing error'))
+                    }
+                    res()
+                })
+            })
+            ctx.putImageData(imageData, 0, 0)
+
+            parts.push("jpg")
+            name = parts.join(".")
+            // promise returns base64 of resized jpeg image
+            resolve({'name': name, 'base64': canvas.toDataURL('image/jpeg', 0.85)})
         }
         // The following image file types are not natively supported by canvas element and will be converted server-side
         if(unsupportedFormats.value.indexOf(String(ext).toLowerCase()) != -1) {
@@ -90,6 +115,7 @@ const resize = (image) => {
         }
 
         let canvas = document.createElement('canvas')
+        let ctx = canvas.getContext('2d')
         let img = new Image()
         const url = window.URL || window.webkitURL
 
@@ -133,7 +159,7 @@ const resize = (image) => {
                     
             canvas.width = canvasWidth
             canvas.height = canvasHeight
-            let ctx = canvas.getContext('2d')
+            
             ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight)
 
             parts.push("jpg")
@@ -185,7 +211,7 @@ const _upload = (promises) => {
         app.$axios.post(app.$apiEndpoint+"upload.php", formData).then(res => {
             if(res.data?.items.length > 0) {
                 uploaded += res.data.items.length
-
+                
                 createImages(res.data.items.map(img => app.$apiEndpoint + img)).then((r) => {
                     images.value = r.data
 

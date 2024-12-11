@@ -342,6 +342,13 @@ const tags = computed(() => {
 watch(() => project, (n) => {
     if(n.value?.files?.length > 0) alert.value.show = false
 }, {deep: true})
+
+useHead({
+    title: "RECON ai",
+    meta: [
+        {name: "description", content: "AI powered home renovation, instant quotes, top-rated pros, home improvement, remodeling, construction."},
+    ]
+})
 </script>
 
 <style >
