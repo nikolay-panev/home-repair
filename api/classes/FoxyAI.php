@@ -159,7 +159,7 @@ class FoxyAI {
 			else return $this->getEstimate($report, $rooms);
 		}
 	}
-	private function getEstimate($report, $rooms) {
+	public function getEstimate($report, $rooms) {
 		$estimate = [];
 		
 		foreach($report['areas'] as $area) {
@@ -206,6 +206,30 @@ class FoxyAI {
 		}
 		
 		return $estimate;
+	}
+	public function toHTML($data) {
+		$html = "<style>th { text-align: left; }</style>";
+		
+		$html .= '<table width="100%" cellspacing="5" border="0">';
+		foreach($data as $key => $item) {
+			$html .= '<thead><tr><th colspan="4" style="border-bottom: 1px solid gray;"></th></tr><tr><th colspan="4"><strong>'.$item['name'].' - $' . number_format($item['total_cost'], 2).'</strong></th></tr>';
+			$html .= '<tr>
+						<th>Description</th>
+                        <th>Qty</th>
+                        <th>PPU</th>
+                        <th>Cost</th>
+                      </tr>
+                      </thead>
+					  <tbody>';
+			foreach($item['data'] as $num => $row) {
+				$html .= '<tr><td>'.$row['description'].'</td><td>'.$row['quantity'].'</td><td>'.$row['ppu'].'</td><td>'.number_format($row['total_cost'], 2).'</td></tr>';
+			}
+			$html .= '</tbody>';
+		}
+		$html .= '</table>';
+		
+		return $html;
+			
 	}
 	private function sendPostRequest($endpoint, $request, $headers = []) {
 		$ch = curl_init($endpoint);

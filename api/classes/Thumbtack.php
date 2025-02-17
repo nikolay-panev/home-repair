@@ -8,9 +8,9 @@ class Thumbtack {
 	private $apiUsername = null;
 	private $apiPassword = null;
 	private $logPath = null;
-	private $apiEndpoint = ['Production' => 'https://pro-api.thumbtack.com/v1/partners/discoverylite/', 'Sandbox' => 'https://staging-pro-api.thumbtack.com/v1/partners/discoverylite/'];
+	private $apiEndpoint = ['Production' => 'https://api.thumbtack.com/v1/partners/discoverylite/', 'Sandbox' => 'https://staging-pro-api.thumbtack.com/v1/partners/discoverylite/'];
 	
-	public function __construct($db, $mode="Sandbox") {
+	public function __construct($db, $mode="Production") {
 		$this->db = $db;
 		$this->mode = $mode;
 		

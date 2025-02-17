@@ -3,9 +3,7 @@ require_once(__DIR__ . "/config.php");
 
 $data = json_decode(file_get_contents('php://input'), true);
 
-if($data['api']) {
-    file_put_contents(__DIR__ . "/storage/log.txt", "HTTP_X_FORWARDED_FOR:" . print_r($_SERVER['HTTP_X_FORWARDED_FOR'], true) . "; REMOTE ADDR: ". $_SERVER['REMOTE_ADDR']);
-    
+if($data['api']) {    
 	if($data['api'] == 'address') {
 		// Google Places API
 		require_once(__DIR__ . "/classes/GooglePlaces.php");
@@ -28,6 +26,7 @@ if($data['api']) {
 		if($data['group_id']) {
 			$report = $api->propertyReport($data['group_id'], $data['street'], $data['city'], $data['state'], $data['zip']);
 			$estimate = $api->createEstimates($report, $data['tags']);
+			$estimateHTML = $api->toHTML($estimate);
 			
 			// Save the report in compressed format
 			$stmt = $db->prepare('INSERT INTO `reports` (`report_id`, `image_group_id`, `customer`, `category`, `areas`, `address`, `email`, `data`, `created`) VALUES (:report_id, :image_group_id, :customer, :category, :areas, :address, :email, :data, :created)');
@@ -40,6 +39,23 @@ if($data['api']) {
 			$stmt->bindValue(':email', $data['email']);
 			$stmt->bindValue(':data', gzcompress(json_encode($report)));
 			$stmt->bindValue(':created', date("Y-m-d H:i:s"));
+			$stmt->execute();
+			
+			// Send email
+			$stmt = $db->prepare('SELECT * FROM `email_templates` WHERE `name` = "Project Estimate"');
+			$stmt->execute();
+			$template = $stmt->fetch(PDO::FETCH_ASSOC);
+			
+			$message = $template['message'];
+			$message = str_ireplace("{category}", $data['category'], $message);
+			$message = str_ireplace("{estimate}", $estimateHTML, $message);
+			
+			$stmt = $db->prepare('INSERT INTO `emails`(`recipient`, `subject`, `message`, `attempts`, `created`) VALUES (:recipient, :subject, :message, :attempts, :created)');
+			$stmt->bindValue(':recipient', $data['email']);
+			$stmt->bindValue(':subject', $template['subject']);
+			$stmt->bindValue(':message', $message);
+			$stmt->bindValue(':attempts', '0');
+			$stmt->bindValue(':created', date('Y-m-d H:i:s'));
 			$stmt->execute();
 
 			die(json_encode(['estimate' => $estimate]));
@@ -100,7 +116,7 @@ if($data['api']) {
 		$pros = $response['results'];
 		
 		if($data['min_rating'] > 0 && is_countable($pros) && count($pros) > 0) {
-			$pros = array_filter($pros, function($item) { return $item['rating'] > $data['min_rating']; });
+			$pros = array_filter($pros, function($item) { return $item['rating'] >= $data['min_rating']; });
 		}
 		
 		die(json_encode($pros));

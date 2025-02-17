@@ -11,21 +11,30 @@
         </v-toolbar>
         
         <v-container v-if="step==0" class="align-self-center">
-            <h1 class="text-h4 font-weight-black py-4 mb-6">Home repair,<br/>made easy.</h1>
+            <h1 class="text-h4 font-weight-black py-2">Home repair,<br/>made easy.</h1>
             <v-form ref="form">
                 <v-row>
                     <v-col cols="12">
-                        <p class="text-h6 font-weight-bold py-2">Get a price. Find a Pro</p>
-                        <v-autocomplete variant="outlined" density="compact" label="Describe your project or problem" v-model="project.category" :items="categoryItems" :rules="[fieldRequired]">
-                            <template v-slot:append>
-                                <v-btn size="48" class="rounded-ts-0 rounded-bs-0 px-6" color="primary" elevation="0" style="margin-left:-20px" @click="goForward()"><v-icon color="white" size="large">mdi-magnify</v-icon></v-btn>
+                        <p class="text-h6 font-weight-bold py-6">Get a price. Find a Pro</p>
+                        <v-autocomplete variant="outlined" label="Describe your project or problem" v-model="project.category" :items="categoryItems" :rules="[fieldRequired]" prepend-icon="mdi-magnify">
+                        </v-autocomplete>
+                    </v-col>
+
+                    <v-col cols="12">
+                        <v-autocomplete variant="outlined" label="Address" v-model="project.address" :items="addressItems" item-value="value" item-title="title" menu-icon="" prepend-icon="mdi-map-marker-outline" clearable="" clear-icon="mdi-close" no-data-text="Type to search for an address" @update:search="addressFind" @update:modelValue="addressDetails" @click:append="addressReset" :rules="[fieldRequired]">
+                            <template v-slot:append-item>
+                                <v-list-item><v-img src="images/google_on_white.png" width="42"></v-img></v-list-item>
                             </template>
                         </v-autocomplete>
+                    </v-col>
+
+                    <v-col cols="12">
+                        <v-alert v-if="alert.show" variant="outlined" :type="alert.type" density="compact">{{ alert.text }}</v-alert>
                     </v-col>
                 </v-row>
             </v-form>
         </v-container>
-
+        <!--
         <v-container v-if="step==1" class="align-self-start mt-1">
             <v-form ref="form">
                 <v-row>
@@ -47,8 +56,9 @@
                 </v-row>
             </v-form>
         </v-container>
+        -->
 
-        <v-container v-if="step==2" class="align-self-start">
+        <v-container v-if="step==1" class="align-self-start">
             <p class="text-h6 font-weight-black text-center my-4">Upload photos</p>
 
             <foxy-image-upload v-model="project.files" :group_id="project.group_id" @upload-error="showError"></foxy-image-upload>
@@ -68,7 +78,7 @@
             </v-form>
         </v-container>
 
-        <v-container v-if="step==3">
+        <v-container v-if="step==2">
             <p class="text-h6 font-weight-black text-center my-4">What's your email?</p>
             <v-form ref="form">
                 <v-row>
@@ -83,13 +93,13 @@
             </v-form>
         </v-container>
 
-        <v-container v-if="step==4" class="align-self-start">
+        <v-container v-if="step==3" class="align-self-start">
             <h1 class="text-h5 text-center font-weight-black py-4">{{ categoryName }}</h1>
 
             <foxy-estimate :data="estimate"></foxy-estimate>
         </v-container>
 
-        <v-container v-if="step==5" class="align-self-start">
+        <v-container v-if="step==4" class="align-self-start">
             <h1 class="text-h5 font-weight-black py-4 text-center">Connect with a pro</h1>
             <v-container class="d-flex justify-center">
                 <svg class="primary" height="28" width="48" viewBox="0 0 16 16" fill="#009fd9"><path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0"></path><path fill="#FFF" d="M8.973 10.385a3.71 3.71 0 0 1-.564 1.957L8 13l-.409-.658a3.704 3.704 0 0 1-.564-1.957v-3.14C7.51 6.62 8.231 6.4 8.973 6.4v3.985zM4 5.69V4h8v1.69H4z"></path></svg>
@@ -114,10 +124,10 @@
                 </v-row>
         </v-container>
 
-        <v-container v-if="step>0 && step<5" class="align-self-end border-t">
+        <v-container v-if="step<4" class="align-self-end border-t">
             <v-row>
                 <v-col cols="5" class="text-left">
-                    <v-btn variant="outlined" class="px-10" :elevation="0" @click="goBack()">Back</v-btn>
+                    <v-btn  v-if="step>0" variant="outlined" class="px-10" :elevation="0" @click="goBack()">Back</v-btn>
                 </v-col>
                 <v-col cols="7" class="text-right">
                     <v-btn color="primary" class="px-10" :elevation="0" @click="goForward()">{{nextBtnText}}</v-btn>
@@ -135,6 +145,8 @@
                 <terms-of-service />
             </v-card>
         </v-dialog>
+
+        <v-img :src="$apiEndpoint + 'pixel.php?customer='+route.params.src" width="1" height="1" />
     </v-container>
 </template>
 
@@ -160,7 +172,6 @@ const project = ref({
     group_id: null,
     accept: null,
     email: null,
-    //images: []
 })
 const estimate = ref([{"room": "Bathroom - Master", "name": "Bathroom - Paint walls", "total_cost": "723", "data": [{"name":"Install New Angle Stops","description":"Install new - valve - angle stop - better","quantity":3,"ppu":104.49,"total_cost":313.47}]}])
 const pros = ref([])
@@ -182,10 +193,10 @@ const validEmail = (val) => {
 const goForward = async () => {
     alert.value.show = false
 
-    if(step.value <= 3) {
+    if(step.value <= 2) {
         let { valid } = await form.value.validate()
 
-        if(step.value == 2) {
+        if(step.value == 1) {
             if(!(project.value.files.length > 0)) {
                 alert.value.text = "You need to upload at least one image."
                 alert.value.type = "error"
@@ -202,20 +213,20 @@ const goForward = async () => {
         }
 
         if(valid) {
-            if(step.value == 1) {
+            if(step.value == 0) {
                 if(project.value.group_id == null) {
                     project.value.group_id = await createGroup()
                     if(!project.value.group_id) return
                 }
             }
-            if(step.value == 3) {
+            if(step.value == 2) {
                 getEstimate()
             }
             
             step.value++
         }
     }
-    else if(step.value == 4) {
+    else if(step.value == 3) {
         getPros()
 
         step.value++

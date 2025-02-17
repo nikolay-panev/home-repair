@@ -25,3 +25,6 @@ api/config.php
 .env
 .env.*
 !.env.example
+api/classes/Google/vendor/
+api/classes/OAuth/vendor/
+api/classes/PHPMailer/vendor/

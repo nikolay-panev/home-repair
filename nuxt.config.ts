@@ -22,9 +22,10 @@ export default defineNuxtConfig({
 	},
   css: ['vuetify/lib/styles/main.sass', '@mdi/font/css/materialdesignicons.min.css'],
   build: {
-		transpile: ['vuetify', 'axios']
+		transpile: ['vuetify', 'axios', 'pinia']
 	},
   modules: [
+    '@pinia/nuxt',
 	  async (options, nuxt) => {
       nuxt.hooks.hook('vite:extendConfig', (config) => {
         config?.plugins?.push(vuetify())

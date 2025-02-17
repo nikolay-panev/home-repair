@@ -95,7 +95,7 @@ class APIMySQL {
 			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 		}
 		
-		return ['debug'=>[$sql, $sql2], 'data'=>$results, 'totalRecords'=>intval($totalRecords)];
+		return ['debug' => SQL_DEBUG ? [$sql, $sql2] : null, 'data'=>$results, 'totalRecords'=>intval($totalRecords)];
 	}
 	private function getSelectQuery($data) {
 		// SELECT [DISTINCT|ALL ] { * | [fieldExpression [AS newName]} FROM tableName [alias] LEFT JOIN table2Name ON tableName.field=table2Name.field [WHERE condition][GROUP BY fieldName(s)]  [HAVING condition] ORDER BY fieldName(s) LIMIT offset,limit
@@ -191,7 +191,7 @@ class APIMySQL {
 			}
 		}
 
-		return ['debug'=>[$sql], 'params'=>$params, 'inserted'=>$id];
+		return ['debug'=> SQL_DEBUG ? [$sql] : null, 'params'=>$params, 'inserted'=>$id];
 	}
 	private function resolveUpdate($data) {
 		if($data['data'] && is_array($data['data']) && count($data['data']) > 0) {
@@ -229,7 +229,7 @@ class APIMySQL {
 			}
 		}
 		
-		return ['debug' => $debug, 'data'=>$data['data'], 'result' => $result];
+		return ['debug' => SQL_DEBUG ? $debug : null, 'data'=>$data['data'], 'result' => $result];
 	}
 	private function resolveDelete($data) {
 		if($data['where'] && is_array($data['where']) && count($data['where']) > 0) {
@@ -239,7 +239,7 @@ class APIMySQL {
 			$stmt = $this->db->prepare($sql);
 			$stmt->execute();
 			
-			return ['debug'=>[$sql]];
+			return ['debug' => SQL_DEBUG ? [$sql] : null];
 		}
 		
 		return [];
