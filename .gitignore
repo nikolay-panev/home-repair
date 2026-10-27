@@ -28,3 +28,4 @@ api/config.php
 api/classes/Google/vendor/
 api/classes/OAuth/vendor/
 api/classes/PHPMailer/vendor/
+api/config.php
